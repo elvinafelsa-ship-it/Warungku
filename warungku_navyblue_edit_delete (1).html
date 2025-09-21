@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WarungKu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navyblue: {
+              50: '#e8edff',
+              100: '#c4d0f9',
+              200: '#9db4f2',
+              300: '#7398eb',
+              400: '#4a7ce4',
+              500: '#3063ca',
+              600: '#244d9f',
+              700: '#1b3875',
+              800: '#12234c',
+              900: '#0a1026'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-navyblue-900 to-navyblue-700 text-white">
+  <header class="sticky top-0 z-30 bg-navyblue-800/70 backdrop-blur border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold tracking-wide">WarungKu</h1>
+      <nav class="flex items-center gap-2">
+        <button id="navHome" class="px-4 py-2 rounded-xl hover:bg-white/10">Home</button>
+        <button id="navAdmin" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20">Admin</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
+    <!-- Home -->
+    <section id="homeSection">
+      <h2 class="text-2xl font-bold mb-4">Katalog Produk</h2>
+      <div id="cart" class="glass p-4 rounded-xl mb-6">
+        <div id="cartTotal">Rp0</div>
+        <button id="checkoutBtn" class="mt-2 px-4 py-2 bg-green-500 rounded-xl text-white">Pesan via WhatsApp</button>
+      </div>
+      <div id="productGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </section>
+
+    <!-- Admin -->
+    <section id="adminSection" class="hidden">
+      <div id="loginCard" class="glass p-6 rounded-xl max-w-md">
+        <h3 class="text-2xl font-bold mb-4">Login Admin</h3>
+        <form id="loginForm">
+          <input id="username" placeholder="admin" class="block w-full mb-3 px-3 py-2 rounded bg-white/10" required />
+          <input id="password" type="password" placeholder="123" class="block w-full mb-3 px-3 py-2 rounded bg-white/10" required />
+          <button type="submit" class="px-4 py-2 bg-white/10 rounded">Masuk</button>
+        </form>
+      </div>
+
+      <div id="adminDash" class="hidden mt-6">
+        <button id="logoutBtn" class="px-4 py-2 bg-red-500 rounded text-white mb-4">Logout</button>
+        <form id="productForm" class="glass p-4 rounded-xl grid gap-2">
+          <input type="hidden" id="editId" />
+          <input id="name" placeholder="Nama Produk" class="px-3 py-2 rounded bg-white/10" />
+          <input id="price" type="number" placeholder="Harga" class="px-3 py-2 rounded bg-white/10" />
+          <textarea id="desc" placeholder="Deskripsi" class="px-3 py-2 rounded bg-white/10"></textarea>
+          <input id="image" type="file" accept="image/*" class="text-sm" />
+          <img id="preview" class="hidden rounded mt-2" />
+          <button id="saveBtn" type="button" class="px-4 py-2 bg-green-500 rounded text-white">Simpan</button>
+        </form>
+        <h4 class="text-xl font-semibold mt-6">Daftar Produk</h4>
+        <div id="adminList" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const homeSection = document.getElementById('homeSection');
+    const adminSection = document.getElementById('adminSection');
+    const loginCard = document.getElementById('loginCard');
+    const adminDash = document.getElementById('adminDash');
+    const productGrid = document.getElementById('productGrid');
+    const adminList = document.getElementById('adminList');
+    const preview = document.getElementById('preview');
+
+    const storage = {
+      getProducts: () => JSON.parse(localStorage.getItem('warungku_products') || '[]'),
+      setProducts: (data) => localStorage.setItem('warungku_products', JSON.stringify(data)),
+      getCart: () => JSON.parse(localStorage.getItem('warungku_cart') || '{}'),
+      setCart: (data) => localStorage.setItem('warungku_cart', JSON.stringify(data)),
+      isAuthed: () => sessionStorage.getItem('authed') === '1',
+      setAuthed: (v) => sessionStorage.setItem('authed', v ? '1' : '0')
+    };
+
+    document.getElementById('navHome').onclick = () => { homeSection.classList.remove('hidden'); adminSection.classList.add('hidden'); };
+    document.getElementById('navAdmin').onclick = () => { homeSection.classList.add('hidden'); adminSection.classList.remove('hidden'); updateAdminView(); };
+
+    document.getElementById('loginForm').onsubmit = (e) => {
+      e.preventDefault();
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      if (u === 'admin' && p === '123') { storage.setAuthed(true); updateAdminView(); }
+      else { alert('Username atau password salah'); }
+    };
+    document.getElementById('logoutBtn').onclick = () => { storage.setAuthed(false); updateAdminView(); };
+
+    function updateAdminView() {
+      if (storage.isAuthed()) { loginCard.classList.add('hidden'); adminDash.classList.remove('hidden'); renderAdminList(); }
+      else { loginCard.classList.remove('hidden'); adminDash.classList.add('hidden'); }
+    }
+
+    document.getElementById('image').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { preview.src = reader.result; preview.classList.remove('hidden'); };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('saveBtn').onclick = () => {
+      const id = document.getElementById('editId').value;
+      const name = document.getElementById('name').value;
+      const price = document.getElementById('price').value;
+      const desc = document.getElementById('desc').value;
+      const img = preview.src || '';
+      if (!name || !price) return alert('Nama dan harga wajib diisi');
+      let products = storage.getProducts();
+      if (id) {
+        const idx = products.findIndex(p => p.id == id);
+        if (idx > -1) products[idx] = { id: parseInt(id), name, price, desc, image: img };
+      } else {
+        products.push({ id: Date.now(), name, price, desc, image: img });
+      }
+      storage.setProducts(products);
+      document.getElementById('editId').value = '';
+      renderCatalog();
+      renderAdminList();
+    };
+
+    function editProduct(id) {
+      const products = storage.getProducts();
+      const p = products.find(x => x.id == id);
+      if (!p) return;
+      document.getElementById('editId').value = p.id;
+      document.getElementById('name').value = p.name;
+      document.getElementById('price').value = p.price;
+      document.getElementById('desc').value = p.desc;
+      if (p.image) { preview.src = p.image; preview.classList.remove('hidden'); }
+    }
+
+    function deleteProduct(id) {
+      let products = storage.getProducts();
+      products = products.filter(p => p.id != id);
+      storage.setProducts(products);
+      renderCatalog();
+      renderAdminList();
+    }
+
+    function addToCart(id) {
+      const cart = storage.getCart();
+      cart[id] = (cart[id] || 0) + 1;
+      storage.setCart(cart);
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      const cart = storage.getCart();
+      const products = storage.getProducts();
+      let total = 0;
+      products.forEach(p => { if (cart[p.id]) total += cart[p.id] * parseInt(p.price); });
+      document.getElementById('cartTotal').textContent = 'Rp' + total;
+    }
+
+    document.getElementById('checkoutBtn').onclick = () => {
+      const cart = storage.getCart();
+      const products = storage.getProducts();
+      if (!Object.keys(cart).length) return alert('Keranjang kosong');
+      let text = 'Halo, saya ingin pesan:%0A';
+      let total = 0;
+      products.forEach(p => { if (cart[p.id]) { text += `- ${p.name} x${cart[p.id]} = Rp${p.price * cart[p.id]}%0A`; total += p.price * cart[p.id]; } });
+      text += `%0ATotal: Rp${total}`;
+      window.open(`https://wa.me/6288971897497?text=${text}`, '_blank');
+    };
+
+    function renderCatalog() {
+      const products = storage.getProducts();
+      productGrid.innerHTML = '';
+      if (!products.length) { productGrid.innerHTML = '<div class="glass p-4 rounded-xl">Belum ada produk</div>'; return; }
+      products.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'glass p-4 rounded-xl flex flex-col';
+        div.innerHTML = `
+          ${p.image ? `<img src="${p.image}" class="rounded-xl mb-2" />` : ''}
+          <h5 class="font-bold">${p.name}</h5>
+          <p>${p.desc || ''}</p>
+          <div>Rp${p.price}</div>
+          <button class="mt-auto px-4 py-2 bg-green-500 text-white rounded-xl" data-id="${p.id}">Tambah ke Keranjang</button>`;
+        productGrid.appendChild(div);
+      });
+      document.querySelectorAll('#productGrid button').forEach(btn => { btn.addEventListener('click', () => addToCart(btn.dataset.id)); });
+    }
+
+    function renderAdminList() {
+      const products = storage.getProducts();
+      adminList.innerHTML = '';
+      products.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'glass p-4 rounded-xl';
+        div.innerHTML = `
+          <h5 class="font-bold">${p.name}</h5>
+          <p>${p.desc || ''}</p>
+          <div>Rp${p.price}</div>
+          <div class="flex gap-2 mt-2">
+            <button onclick="editProduct(${p.id})" class="px-3 py-1 bg-yellow-500 text-white rounded">Edit</button>
+            <button onclick="deleteProduct(${p.id})" class="px-3 py-1 bg-red-500 text-white rounded">Delete</button>
+          </div>`;
+        adminList.appendChild(div);
+      });
+    }
+
+    renderCatalog();
+    updateAdminView();
+    updateCartUI();
+  </script>
+</body>
+</html>
